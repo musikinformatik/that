@@ -201,6 +201,32 @@ Ndef(\freqTime).resume;
 ~that_test.(\test, { Ndef.ar(\input) }, { |event| event.postln }, { Impulse.kr(2) });
 ~that_test.(\test, { Ndef.ar(\input) }, { |event| event.postln }); // doesn't work yet
 
+// =============================================================================
+// What to do if you want to pass an array of signals and analyse them together?
+// We need a little trick for this.
+// =============================================================================
+
+
+// For example, measure the difference between the amplitudes of all signals
+
+(
+~that_amplitudeDiffDef = { |name, inputFunction, responseFunction, triggerFunction|
+	var analyser = { |input| // array of amplitudes
+		var amps = input.asArray.collect { |in| Amplitude.kr(in) };
+		var diffs = all {: absdif(x, y), x <- amps, y<-amps, x != y }; // <- all pairs. what is this?!? see: list comprehension help
+		var maxDiff = diffs.reduce(\max);
+		(diffs: diffs, maxDiff: maxDiff)
+	};
+	// here is the trick: { [inputFunction.value] } passes all channels together in a single-channel
+	// like instead of [1, 2, 3] you pass [[1, 2, 3]], so that they are analysed en bloc
+	~that_analysisDef.(name, { [inputFunction.value] }, analyser, responseFunction, triggerFunction);
+};
+)
+
+(
+var multiChannelSignal = { LFNoise2.kr(0.4 ! 5).range(0, 1) * SinOsc.ar({ rrand(300, 800.0) } ! 5) };
+~that_amplitudeDiffDef.(\freqMFCC, multiChannelSignal, { |event| event.postln }, { Impulse.kr(2) });
+)
 
 
 // ==========================
