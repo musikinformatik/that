@@ -48,7 +48,7 @@ necessary. When a trigger function is given, the result values are multichannel 
 // multichannel expansion is only reasonable if all channels are triggered by a single trigger
 // this is why you need a triggerFunction for multichannel expansion
 
-~that_analysisDef = { |uniqueName, inputFunction, analysisFunction, responseFunction, triggerFunction, splitChannels = true|
+~that_analysisDef = { |uniqueName, inputFunction, analysisFunction, responseFunction, triggerFunction|
 	var cmdName = '/analyser_' ++ uniqueName;
 	var numChannels, allKeys, msgValueArray, multichannelExpandEach;
 
@@ -60,12 +60,8 @@ necessary. When a trigger function is given, the result values are multichannel 
 		var analysisResults;
 
 
-		analysisResults = if(splitChannels) {
-			allChannels.collect { |inChannel, i|
-				analysisFunction.value(inChannel, allChannels, i);
-			};
-		} {
-			analysisFunction.value(allChannels)
+		analysisResults = allChannels.collect { |inChannel, i|
+			analysisFunction.value(inChannel, allChannels, i);
 		};
 
 		allKeys = analysisResults.first.keys;
