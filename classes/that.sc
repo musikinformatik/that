@@ -135,12 +135,9 @@ That {
 
 		}, oscChannelName).fix;
 	}
-}
 
-ThatAmp : That {
-	// todo make params editable
-	*new{|name, input, callback, trigger|
-		var analyzerFunction = {|in|
+	*amp {|name, input, callback, trigger|
+			var analyzerFunction = {|in|
 			var amp;
 			var defaultTrig;
 
@@ -161,12 +158,10 @@ ThatAmp : That {
 				amp: amp,
 			);
 		};
-		^super.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback);
 	}
-}
 
-ThatFreq : That {
-	*new{ |name, input, callback, trigger|
+	*freq {|name, input, callback, trigger|
 		var analyzerFunction = {|in|
 			var freq;
 			var hasFreq;
@@ -200,6 +195,6 @@ ThatFreq : That {
 
 			)
 		};
-		^super.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback);
 	}
 }
