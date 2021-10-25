@@ -31,7 +31,7 @@ That {
 			all[name] = res;
 		}, {
 			input !? { res.input = input };
-			analyzer !? { res.analyzer = analyzer };
+			analyzerFunction !? { res.analyzerFunction = analyzerFunction };
 			callback !? { res.callback = callback };
 		});
 		^res;
