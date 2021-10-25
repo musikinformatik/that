@@ -1,37 +1,37 @@
 That {
 	classvar <all; // cache/dictionary for all existing instances
 
-	var <name; // is also used to generate ndef and oscdef names - must be unique!
+	var <name; // is also used to generate Ndef and OSCdef names - must be unique!
 	var <input; // input that gets analyzed
-	var <analyzer; // function which analyzes the input and returns an event
+	var <analyzerFunction; // function which analyzes the input and returns an event
 	var <>callback; // function that will get called with the results as first param
 
 	// public variables
 	var <latestValue; // last stored value/event that was sent from analyzer
+	var <analyzer; // a node proxy which runs the analyser and can be acessed to modify arguments
 
 	// private variables
 	var analyzerResultKeys; // keys of the event that the analyzer returns
 	var defName; // name used for OSCdef and Ndef keys
 	var oscChannelName; // osc channel name to send messages from server to sclang
 	var numInputChannels; // needed for unwrapping multichannel results
-	var ndef; // runs the analyser and sends results to oscdef
-	var oscdef; // responds to messages from ndef
+	var oscdef; // responds to messages from analyzer
 
 	*initClass {
 		all = ();
 	}
 
-	*new {|name, input, analyzer, callback|
+	*new {|name, input, analyzerFunction, callback|
 		var res = all.at(name);
 		if(res.isNil, {
-			if(analyzer.isNil, {
-				Error("Please provide an analyzer").throw;
+			if(analyzerFunction.isNil, {
+				Error("Please provide an analyzerFunction").throw;
 			});
-			res = super.newCopyArgs(name, input, analyzer, callback).init.();
+			res = super.newCopyArgs(name, input, analyzerFunction, callback).init.();
 			all[name] = res;
 		}, {
 			input !? { res.input = input };
-			//analyzer !? { res.analyzer = analyzer };
+			analyzer !? { res.analyzer = analyzer };
 			callback !? { res.callback = callback };
 		});
 		^res;
@@ -44,20 +44,29 @@ That {
 	}
 
 	clear {
-		OSCdef(this.defName).free;
-		Ndef(this.defName).clear;
-		all[this.name] = nil;
+		OSCdef(defName).free;
+		Ndef(defName).clear;
+		all[name] = nil;
 	}
 
 	input_ {|newInput|
 		input = newInput;
+		this.prUpdateDefs();
+	}
 
-		ndef = this.prCreateNdef();
-		oscdef = this.prCreateOscDef();
+	analyzerFunction_ {|newAnalyzerFunction|
+		analyzerFunction = newAnalyzerFunction;
+		this.prUpdateDefs();
+
+	}
+
+	prUpdateDefs {
+		this.prCreateNdef();
+		this.prCreateOscDef();
 	}
 
 	prCreateNdef {
-		Ndef(defName, {
+		analyzer = Ndef(defName, {
 			var inputChannels;
 			var analyzerResults;
 			var oscPayload;
@@ -68,7 +77,7 @@ That {
 
 			analyzerResults = inputChannels.collect { |inputChannel, i|
 				// is .value(...) some multichannel stuff?
-				analyzer.value(inputChannel, inputChannels, i);
+				analyzerFunction.value(inputChannel, inputChannels, i);
 			};
 
 			//  prepare payload
@@ -81,7 +90,7 @@ That {
 			});
 
 			if(analyzerResults.first[\trig].isNil, {
-				Error("you should return an event with a 'trig' value from your analyzer").throw
+				Error("you should return an event with a 'trig' value from your analyzerFunction").throw
 			});
 
 			// sum up all active triggers to perform an OR operation
@@ -99,7 +108,7 @@ That {
 	}
 
 	prCreateOscDef {
-		OSCdef(defName, { |msg|
+		oscdef = OSCdef(defName, { |msg|
 			var values = msg[3..];
 			var event = ();
 			// msg[2] is replyID of SendReply which we set fixed to -1
@@ -130,7 +139,7 @@ That {
 ThatAmp : That {
 	// todo make params editable
 	*new{|name, input, callback, trigger|
-		var analyzer = {|in|
+		var analyzerFunction = {|in|
 			var amp;
 			var defaultTrig;
 
@@ -151,13 +160,13 @@ ThatAmp : That {
 				amp: amp,
 			);
 		};
-		^super.new(name, input, analyzer, callback);
+		^super.new(name, input, analyzerFunction, callback);
 	}
 }
 
 ThatFreq : That {
 	*new{ |name, input, callback, trigger|
-		var analyzer = {|in|
+		var analyzerFunction = {|in|
 			var freq;
 			var hasFreq;
 			var defaultTrig;
@@ -190,6 +199,6 @@ ThatFreq : That {
 
 			)
 		};
-		^super.new(name, input, analyzer, callback);
+		^super.new(name, input, analyzerFunction, callback);
 	}
 }
