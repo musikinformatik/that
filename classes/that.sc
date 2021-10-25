@@ -137,7 +137,7 @@ That {
 	}
 
 	*amp {|name, input, callback, trigger|
-			var analyzerFunction = {|in|
+		var analyzerFunction = {|in|
 			var amp;
 			var defaultTrig;
 
@@ -196,5 +196,44 @@ That {
 			)
 		};
 		^this.new(name, input, analyzerFunction, callback);
+	}
+
+	*freqTime {|name, input, callback, trigger|
+		var analyzerFunction = { |in|
+			var freq;
+			var hasFreq;
+			var defaultTrig;
+			var trig;
+
+			#freq, hasFreq = Tartini.kr(
+				in: in,
+				threshold: \freqThreshold.kr(0.93)
+			);
+
+			defaultTrig = Onsets.kr(
+				chain: FFT(LocalBuf(256), in),
+				threshold: \threshold.kr(0.2),
+				odftype: \wphase,
+				relaxtime: \relaxtime.kr(0.02),
+				floor: \floor.kr(0.01),
+				mingap: \mingap.kr(12),
+				medianspan: \medianspan.kr(11)
+			) * (hasFreq > 0); // send only reliable values
+
+			trig = if(trigger.isNil, {
+				defaultTrig;
+			}, {
+				trigger.(in, defaultTrig);
+			});
+
+			(
+				trig: trig,
+				freq: freq,
+				timePassed: Timer.kr(trig),
+				amp:  Amplitude.kr(input),
+			)
+		};
+		^this.new(name, input, analyzerFunction, callback);
+
 	}
 }
