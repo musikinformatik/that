@@ -128,19 +128,24 @@ That {
 
 ThatAmp : That {
 	// todo make params editable
-	*new{|name, input, callback, trigger=nil|
+	*new{|name, input, callback, trigger|
 		var analyzer = {|in|
-			var amp = Amplitude.kr(
+			var amp;
+			var defaultTrig;
+
+			amp = Amplitude.kr(
 				in: in,
 				attackTime: \attackTime.kr(0.01),
 				releaseTime: \releaseTime.kr(0.01),
 			);
 
+			defaultTrig = amp > \threshold.kr(0.05);
+
 			(
-				trig: if(trigger.isNil.not, {
-					trigger;
-				},{
-					amp > \threshold.kr(0.05);
+				trig: if(trigger.isNil, {
+					defaultTrig;
+				}, {
+					trigger.(in, defaultTrig);
 				}),
 				amp: amp,
 			);
@@ -150,35 +155,39 @@ ThatAmp : That {
 }
 
 ThatFreq : That {
-	*new{ |name, input, callback, trigger=nil|
+	*new{ |name, input, callback, trigger|
 		var analyzer = {|in|
 			var freq;
 			var hasFreq;
-			var trig;
+			var defaultTrig;
 
 			#freq, hasFreq = Tartini.kr(
 				in: in,
 				threshold: \freqThreshold.kr(0.93)
 			);
 
-			trig = if(trigger.isNil.not, {
-				trigger
-			}, {
-				Onsets.kr(
-					chain: FFT(
-						buffer: LocalBuf(256),
-						in: in
-					),
-					threshold: \threshold.kr(0.2),
-					odftype: \wphase,
-					relaxtime: \relaxtime.kr(0.02),
-					floor: \floor.kr(0.01),
-					mingap: \mingap.kr(12),
-					medianspan: \medianspan.kr(11)
-				) * (hasFreq > 0); // send only reliable values
-			});
+			defaultTrig = Onsets.kr(
+				chain: FFT(
+					buffer: LocalBuf(256),
+					in: in
+				),
+				threshold: \threshold.kr(0.2),
+				odftype: \wphase,
+				relaxtime: \relaxtime.kr(0.02),
+				floor: \floor.kr(0.01),
+				mingap: \mingap.kr(12),
+				medianspan: \medianspan.kr(11)
+			) * (hasFreq > 0); // send only reliable values
 
-			(trig: trig, freq: freq)
+			(
+				trig: if(trigger.isNil, {
+					defaultTrig;
+				}, {
+					trigger.(in, defaultTrig);
+				}),
+				freq: freq
+
+			)
 		};
 		^super.new(name, input, analyzer, callback);
 	}
