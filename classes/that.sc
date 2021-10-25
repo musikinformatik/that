@@ -82,7 +82,7 @@ That {
 			};
 
 			//  prepare payload
-			analyzerResultKeys = analyzerResults.first.keys.remove(\trig).asArray.sort;
+			analyzerResultKeys = analyzerResults.first.keys.remove(\trigger).asArray.sort;
 			// convert to [foo_ch1, foo_ch2, bar_ch1, bar_ch2]
 			oscPayload = analyzerResultKeys.collect({ |key|
 				analyzerResults.collect({ |event|
@@ -90,12 +90,12 @@ That {
 				});
 			});
 
-			if(analyzerResults.first[\trig].isNil, {
-				Error("you should return an event with a 'trig' value from your analyzerFunction").throw
+			if(analyzerResults.first[\trigger].isNil, {
+				Error("the analyzerFunction must return an event with a 'trigger' key/value").throw
 			});
 
 			// sum up all active triggers to perform an OR operation
-			summedTriggers = analyzerResults.collect({|r| r[\trig]}).sum;
+			summedTriggers = analyzerResults.collect({|r| r[\trigger]}).sum;
 
 			// same as SendReply.kr/ar but rate can be adapted dynamically
 			SendReply.perform(
@@ -136,43 +136,42 @@ That {
 		}, oscChannelName).fix;
 	}
 
-	*amp {|name, input, callback, trigger|
-		var analyzerFunction = {|in|
-			var amp;
-			var defaultTrig;
+	*prCreateTrigger {|in, defaultTrigger, triggerFunction|
+		^if(triggerFunction.isNil, {
+			defaultTrigger;
+		}, {
+			triggerFunction.(in, defaultTrigger);
+		});
+	}
 
-			amp = Amplitude.kr(
+	*amp {|name, input, callback, triggerFunction|
+		var analyzerFunction = {|in|
+			var amp = Amplitude.kr(
 				in: in,
 				attackTime: \attackTime.kr(0.01),
 				releaseTime: \releaseTime.kr(0.01),
 			);
 
-			defaultTrig = amp > \threshold.kr(0.05);
-
 			(
-				trig: if(trigger.isNil, {
-					defaultTrig;
-				}, {
-					trigger.(in, defaultTrig);
-				}),
+				trigger: this.prCreateTrigger(in, amp > \threshold.kr(0.05), triggerFunction),
 				amp: amp,
 			);
 		};
 		^this.new(name, input, analyzerFunction, callback);
 	}
 
-	*freq {|name, input, callback, trigger|
+	*freq {|name, input, callback, triggerFunction|
 		var analyzerFunction = {|in|
 			var freq;
 			var hasFreq;
-			var defaultTrig;
+			var defaultTrigger;
 
 			#freq, hasFreq = Tartini.kr(
 				in: in,
 				threshold: \freqThreshold.kr(0.93)
 			);
 
-			defaultTrig = Onsets.kr(
+			defaultTrigger = Onsets.kr(
 				chain: FFT(
 					buffer: LocalBuf(256),
 					in: in
@@ -186,11 +185,7 @@ That {
 			) * (hasFreq > 0); // send only reliable values
 
 			(
-				trig: if(trigger.isNil, {
-					defaultTrig;
-				}, {
-					trigger.(in, defaultTrig);
-				}),
+				trigger: this.prCreateTrigger(in, defaultTrigger, triggerFunction),
 				freq: freq
 
 			)
@@ -198,19 +193,19 @@ That {
 		^this.new(name, input, analyzerFunction, callback);
 	}
 
-	*freqTime {|name, input, callback, trigger|
+	*freqTime {|name, input, callback, triggerFunction|
 		var analyzerFunction = { |in|
 			var freq;
 			var hasFreq;
-			var defaultTrig;
-			var trig;
+			var defaultTrigger;
+			var trigger;
 
 			#freq, hasFreq = Tartini.kr(
 				in: in,
 				threshold: \freqThreshold.kr(0.93)
 			);
 
-			defaultTrig = Onsets.kr(
+			defaultTrigger = Onsets.kr(
 				chain: FFT(LocalBuf(256), in),
 				threshold: \threshold.kr(0.2),
 				odftype: \wphase,
@@ -220,34 +215,22 @@ That {
 				medianspan: \medianspan.kr(11)
 			) * (hasFreq > 0); // send only reliable values
 
-			trig = if(trigger.isNil, {
-				defaultTrig;
-			}, {
-				trigger.(in, defaultTrig);
-			});
+			trigger = this.prCreateTrigger(in, defaultTrigger, triggerFunction);
 
 			(
-				trig: trig,
+				trigger: trigger,
 				freq: freq,
-				timePassed: Timer.kr(trig),
+				timePassed: Timer.kr(trigger),
 				amp:  Amplitude.kr(input),
 			)
 		};
 		^this.new(name, input, analyzerFunction, callback);
 	}
 
-	*identity {|name, input, callback, trigger|
+	*identity {|name, input, callback, triggerFunction|
 		var analyzerFunction = {|in|
-			var defaultTrigger;
-
-			defaultTrigger = Impulse.kr(1.0);
-
 			(
-				trig: if(trigger.isNil, {
-					defaultTrigger;
-				}, {
-					trigger.(in, defaultTrigger);
-				}),
+				trigger: this.prCreateTrigger(in, Impulse.kr(1.0), triggerFunction),
 				identity: in,
 			)
 		};
