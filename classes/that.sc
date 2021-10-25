@@ -30,9 +30,9 @@ That {
 			res = super.newCopyArgs(name, input, analyzer, callback).init.();
 			all[name] = res;
 		}, {
-			res.analyzer = analyzer;
-			res.callback = callback;
-			res.setInput(input);
+			input !? { res.input = input };
+			//analyzer !? { res.analyzer = analyzer };
+			callback !? { res.callback = callback };
 		});
 		^res;
 	}
