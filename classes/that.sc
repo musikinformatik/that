@@ -2,18 +2,18 @@ That {
 	classvar <>all; // cache/dictionary for all existing instances
 
 	var <>callback; // function that will get called with the results as first param
-	var <>analyzer; // ugen that can perform identification
-	var <>name; // is used for ndef and oscdef names - must be unique
+	var <>analyzer; // function which analyzes the input and returns an event
+	var <>name; // is also used to generate ndef and oscdef names - must be unique!
 	var <>input; // input that gets analyzed
-	var <>oscChannelName; // the osc channel to send messages from server to sclang
-	var <>allKeys;
-	var <>identifier; // should this ever be different from name?
+	var <>analyzerResultKeys; // keys of the event that the analyzer returns
+	var <>defName; // name used for OSCdef and Ndef keys
+	var <>oscChannelName; // osc channel name to send messages from server to sclang
 	// check...
-	var <>numChannels;
-	var <>ndef;
-	var <>oscdef;
+	var <>numInputChannels; // needed for unwrapping multichannel results
+	var <>ndef; // runs the analyser and sends results to oscdef
+	var <>oscdef; // responds to messages from ndef
 
-	var <>v;
+	var <>v; // last stored value
 
 	*initClass {
 		all = ();
@@ -39,14 +39,14 @@ That {
 		this.name = name;
 		this.analyzer = analyzer;
 		this.callback = callback;
-		this.identifier = "that_%".format(this.name).asSymbol;
+		this.defName = "that_%".format(this.name).asSymbol;
 		this.oscChannelName = "/that/%".format(this.name);
 		this.setInput(input);
 	}
 
 	clear {
-		OSCdef(this.identifier).free;
-		Ndef(this.identifier).clear;
+		OSCdef(this.defName).free;
+		Ndef(this.defName).clear;
 		all[this.name] = nil;
 	}
 
@@ -58,60 +58,63 @@ That {
 	}
 
 	prCreateNdef {
-		Ndef(this.identifier, {
-			var analysisChannels;
-			var allChannels;
-			var analysisResults;
+		Ndef(this.defName, {
+			var inputChannels;
+			var analyzerResults;
+			var oscPayload;
+			var summedTriggers;
 
-			// allChannels = dim of event
-			// does not work for ndefs?
-			allChannels = this.input.value.asArray;
-			this.numChannels = allChannels.size;
+			inputChannels = this.input.value.asArray;
+			this.numInputChannels = inputChannels.size;
 
-			analysisResults = allChannels.collect { |inChannel, i|
+			analyzerResults = inputChannels.collect { |inputChannel, i|
 				// is .value(...) some multichannel stuff?
-				this.analyzer.value(inChannel, allChannels, i);
+				this.analyzer.value(inputChannel, inputChannels, i);
 			};
 
-			allKeys = analysisResults.first.keys;
-			allKeys.remove(\trig);
-			allKeys = allKeys.asArray.sort;
+			//  prepare payload
+			analyzerResultKeys = analyzerResults.first.keys.remove(\trig).asArray.sort;
+			// convert to [foo_ch1, foo_ch2, bar_ch1, bar_ch2]
+			oscPayload = analyzerResultKeys.collect({ |key|
+				analyzerResults.collect({ |event|
+					event[key];
+				});
+			});
 
-			analysisResults.do { |event, i|
-				var messageTrig = event[\trig];
-				if(messageTrig.isNil) {
-					Error("you should return an event with a 'trig' value from your analyzer").throw
-				};
+			if(analyzerResults.first[\trig].isNil, {
+				Error("you should return an event with a 'trig' value from your analyzer").throw
+			});
 
-				// same as SendReply.kr/ar but rate can be adapted dynamically
-				SendReply.perform(
-					UGen.methodSelectorForRate(messageTrig.rate),
-					messageTrig, // trig
-					this.oscChannelName, // cmdName
-					allKeys.collect { |key| event[key] }.flat, // values
-					i // replyID
-				);
-			};
-			SinOsc.kr(0.2);
+			// sum up all active triggers to perform an OR operation
+			summedTriggers = analyzerResults.collect({|r| r[\trig]}).sum;
+
+			// same as SendReply.kr/ar but rate can be adapted dynamically
+			SendReply.perform(
+				UGen.methodSelectorForRate(summedTriggers.rate),
+				summedTriggers, // trig
+				this.oscChannelName, // cmdName
+				oscPayload.flat, // values we evaluated from the analyzer, index 3.. of the OSC message
+				-1, // implicitly set replyID to -1, index 2 of the OSC message
+			);
 		});
 	}
 
 	prCreateOscDef {
-		OSCdef(this.identifier, { |msg|
+		OSCdef(this.defName, { |msg|
 			var values = msg[3..];
-			var channelIndex = msg[2];
 			var event = ();
+			// msg[2] is replyID of SendReply which we set fixed to -1
 
-			if(numChannels > 1) {
-				event[\channelIndex] = channelIndex
-			};
-			// put the values back into the event, and unbubble singleton arrays like [100] –> 100
-			if(allKeys.size==1, {
-				// if only 1 value we return no dict but the value directly
-				event = values[0].unbubble
+			if(analyzerResultKeys.size==1, {
+				// if only one key exists in we return an array and not a dict
+				event = values
 			}, {
-				allKeys.do { |key, i|
-					event[key] = values[i].unbubble
+				// else we need to unwrap the keys according in respect to the channels
+				analyzerResultKeys.do { |key, i|
+					// the incoming message looks like [foo_ch1, foo_ch2, bar_ch1, bar_ch2]
+					// and gets transformed to (foo: [foo_ch1, foo_ch2], bar: [bar_ch1, bar_ch2])
+					var arrayOffset = i*numInputChannels;
+					event[key] = values[arrayOffset..(arrayOffset+numInputChannels-1)]
 				}
 			});
 
