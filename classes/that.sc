@@ -234,6 +234,23 @@ That {
 			)
 		};
 		^this.new(name, input, analyzerFunction, callback);
+	}
 
+	*identity {|name, input, callback, trigger|
+		var analyzerFunction = {|in|
+			var defaultTrigger;
+
+			defaultTrigger = Impulse.kr(1.0);
+
+			(
+				trig: if(trigger.isNil, {
+					defaultTrigger;
+				}, {
+					trigger.(in, defaultTrigger);
+				}),
+				identity: in,
+			)
+		};
+		^this.new(name, input, analyzerFunction, callback);
 	}
 }
