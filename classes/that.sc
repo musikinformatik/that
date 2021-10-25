@@ -1,19 +1,21 @@
 That {
-	classvar <>all; // cache/dictionary for all existing instances
+	classvar <all; // cache/dictionary for all existing instances
 
+	var <name; // is also used to generate ndef and oscdef names - must be unique!
+	var <input; // input that gets analyzed
+	var <analyzer; // function which analyzes the input and returns an event
 	var <>callback; // function that will get called with the results as first param
-	var <>analyzer; // function which analyzes the input and returns an event
-	var <>name; // is also used to generate ndef and oscdef names - must be unique!
-	var <>input; // input that gets analyzed
-	var <>analyzerResultKeys; // keys of the event that the analyzer returns
-	var <>defName; // name used for OSCdef and Ndef keys
-	var <>oscChannelName; // osc channel name to send messages from server to sclang
-	// check...
-	var <>numInputChannels; // needed for unwrapping multichannel results
-	var <>ndef; // runs the analyser and sends results to oscdef
-	var <>oscdef; // responds to messages from ndef
 
-	var <>v; // last stored value
+	// public variables
+	var <v; // last stored value
+
+	// private variables
+	var analyzerResultKeys; // keys of the event that the analyzer returns
+	var defName; // name used for OSCdef and Ndef keys
+	var oscChannelName; // osc channel name to send messages from server to sclang
+	var numInputChannels; // needed for unwrapping multichannel results
+	var ndef; // runs the analyser and sends results to oscdef
+	var oscdef; // responds to messages from ndef
 
 	*initClass {
 		all = ();
@@ -25,7 +27,7 @@ That {
 			if(analyzer.isNil, {
 				Error("Please provide an analyzer").throw;
 			});
-			res = super.new.init(name, input, analyzer, callback);
+			res = super.newCopyArgs(name, input, analyzer, callback).init.();
 			all[name] = res;
 		}, {
 			res.analyzer = analyzer;
@@ -35,13 +37,10 @@ That {
 		^res;
 	}
 
-	init {|name, input, analyzer, callback|
-		this.name = name;
-		this.analyzer = analyzer;
-		this.callback = callback;
-		this.defName = "that_%".format(this.name).asSymbol;
-		this.oscChannelName = "/that/%".format(this.name);
-		this.setInput(input);
+	init {
+		defName = "that_%".format(name).asSymbol;
+		oscChannelName = "/that/%".format(name);
+		this.input = input;
 	}
 
 	clear {
@@ -50,26 +49,26 @@ That {
 		all[this.name] = nil;
 	}
 
-	setInput {|input|
-		this.input = input;
+	input_ {|newInput|
+		input = newInput;
 
-		this.ndef = this.prCreateNdef();
-		this.oscdef = this.prCreateOscDef();
+		ndef = this.prCreateNdef();
+		oscdef = this.prCreateOscDef();
 	}
 
 	prCreateNdef {
-		Ndef(this.defName, {
+		Ndef(defName, {
 			var inputChannels;
 			var analyzerResults;
 			var oscPayload;
 			var summedTriggers;
 
-			inputChannels = this.input.value.asArray;
-			this.numInputChannels = inputChannels.size;
+			inputChannels = input.value.asArray;
+			numInputChannels = inputChannels.size;
 
 			analyzerResults = inputChannels.collect { |inputChannel, i|
 				// is .value(...) some multichannel stuff?
-				this.analyzer.value(inputChannel, inputChannels, i);
+				analyzer.value(inputChannel, inputChannels, i);
 			};
 
 			//  prepare payload
@@ -92,7 +91,7 @@ That {
 			SendReply.perform(
 				UGen.methodSelectorForRate(summedTriggers.rate),
 				summedTriggers, // trig
-				this.oscChannelName, // cmdName
+				oscChannelName, // cmdName
 				oscPayload.flat, // values we evaluated from the analyzer, index 3.. of the OSC message
 				-1, // implicitly set replyID to -1, index 2 of the OSC message
 			);
@@ -100,7 +99,7 @@ That {
 	}
 
 	prCreateOscDef {
-		OSCdef(this.defName, { |msg|
+		OSCdef(defName, { |msg|
 			var values = msg[3..];
 			var event = ();
 			// msg[2] is replyID of SendReply which we set fixed to -1
@@ -119,12 +118,12 @@ That {
 			});
 
 			// store event also in object
-			this.v = event;
+			v = event;
 
 			// callback time
-			this.callback.value(event);
+			callback.value(event);
 
-		}, this.oscChannelName).fix;
+		}, oscChannelName).fix;
 	}
 }
 
