@@ -22,7 +22,6 @@ That {
 	*new {|name, input, analyzer, callback|
 		var res = all.at(name);
 		if(res.isNil, {
-			name.postln;
 			if(analyzer.isNil, {
 				Error("Please provide an analyzer").throw;
 			});
