@@ -236,4 +236,19 @@ That {
 		};
 		^this.new(name, input, analyzerFunction, callback);
 	}
+
+	*mfcc {|name, input, callback, triggerFunction, fftSize=1024|
+		var analyzerFunction = {|in|
+			var fft;
+			var spectrum;
+
+			fft = FFT(LocalBuf(fftSize), input);
+			spectrum = MFCC.kr(fft);
+			(
+				trigger: this.prCreateTrigger(in, fft, triggerFunction),
+				spectrum: spectrum,
+			)
+		};
+		^this.new(name, input, analyzerFunction, callback);
+	}
 }
