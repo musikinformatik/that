@@ -27,6 +27,7 @@ That {
 			if(analyzerFunction.isNil, {
 				Error("Please provide an analyzerFunction").throw;
 			});
+			callback = callback ? {}; // enforce a function as callback and not allow nil
 			res = super.newCopyArgs(name, input, analyzerFunction, callback).init.();
 			all[name] = res;
 		}, {
