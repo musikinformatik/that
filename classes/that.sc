@@ -7,7 +7,7 @@ That {
 	var <>callback; // function that will get called with the results as first param
 
 	// public variables
-	var <v; // last stored value
+	var <latestValue; // last stored value/event that was sent from analyzer
 
 	// private variables
 	var analyzerResultKeys; // keys of the event that the analyzer returns
@@ -118,7 +118,7 @@ That {
 			});
 
 			// store event also in object
-			v = event;
+			latestValue = event;
 
 			// callback time
 			callback.value(event);
