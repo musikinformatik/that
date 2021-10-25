@@ -1,50 +1,4 @@
-ThatInput {
-	classvar <>all; // a dictionary/cache to keep track of all instances which are unique identified by name
-
-	var <>name; // unique identifier
-	var <>input; // function or Ndef which provides an (audio) signal that shall be analyzed
-
-	*initClass {
-		all = ();
-	}
-
-	*new {|name, input|
-		// check if the name is already used
-		var res = all.at(name);
-		if(res.isNil, {
-			if(input.isNil, {
-				Error("Unknown ThatInput - when creating a new ThatInput please also provide an input").throw;
-			});
-			res = super.new.init(name, input);
-			all[name] = res;
-		}, {
-			// update input if we use an existing input
-			res.input = input;
-		});
-		^res;
-	}
-
-	init { |name, input|
-		this.name = name;
-		this.input = input;
-	}
-
-	add { |...analyzers|
-		analyzers.do({|analyzer|
-			analyzer.setInput(this.input);
-		});
-	}
-
-	clear {
-		// we do not clear the analyzers here as those could already been
-		// attached to another input which we currently do not keep track of
-		all[this.name] = nil;
-		// todo more gc?
-	}
-}
-
-
-ThatAnalyzer {
+That {
 	classvar <>all; // cache/dictionary for all existing instances
 
 	var <>callback; // function that will get called with the results as first param
@@ -65,28 +19,30 @@ ThatAnalyzer {
 		all = ();
 	}
 
-	*new {|name, analyzer, callback|
+	*new {|name, input, analyzer, callback|
 		var res = all.at(name);
 		if(res.isNil, {
 			name.postln;
 			if(analyzer.isNil, {
 				Error("Please provide an analyzer").throw;
 			});
-			res = super.new.init(name, analyzer, callback);
+			res = super.new.init(name, input, analyzer, callback);
 			all[name] = res;
 		}, {
 			res.analyzer = analyzer;
 			res.callback = callback;
+			res.setInput(input);
 		});
 		^res;
 	}
 
-	init {|name, analyzer, callback|
+	init {|name, input, analyzer, callback|
 		this.name = name;
 		this.analyzer = analyzer;
 		this.callback = callback;
 		this.identifier = "that_%".format(this.name).asSymbol;
 		this.oscChannelName = "/that/%".format(this.name);
+		this.setInput(input);
 	}
 
 	clear {
@@ -170,9 +126,9 @@ ThatAnalyzer {
 	}
 }
 
-ThatAmpAnalyzer : ThatAnalyzer {
+ThatAmp : That {
 	// todo make params editable
-	*new{|name, callback, trigger=nil|
+	*new{|name, input, callback, trigger=nil|
 		var analyzer = {|in|
 			var amp = Amplitude.kr(
 				in: in,
@@ -189,13 +145,12 @@ ThatAmpAnalyzer : ThatAnalyzer {
 				amp: amp,
 			);
 		};
-		// call new and init b/c otherwise init will not be called properly?
-		^super.new(name, analyzer, callback).init(name, analyzer, callback);
+		^super.new(name, input, analyzer, callback);
 	}
 }
 
-ThatFreqAnalyzer : ThatAnalyzer {
-	*new{ |name, callback, trigger=nil|
+ThatFreq : That {
+	*new{ |name, input, callback, trigger=nil|
 		var analyzer = {|in|
 			var freq;
 			var hasFreq;
@@ -225,6 +180,6 @@ ThatFreqAnalyzer : ThatAnalyzer {
 
 			(trig: trig, freq: freq)
 		};
-		^super.new(name, analyzer, callback).init(name, analyzer, callback);
+		^super.new(name, input, analyzer, callback);
 	}
 }
