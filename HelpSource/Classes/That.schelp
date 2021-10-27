@@ -126,6 +126,16 @@ argument:: triggerFunction
 METHOD:: identity
 A constructor which allows to access the raw values of the input signal.
 See new and amp for more information on the parameters.
+code::
+(
+That.identity(
+	name: \thatIdentity,
+	input: {SinOsc.ar(0.2)},
+	callback: {|r| r.postln;}
+)
+)
+That(\thatIdentity).clear;
+::
 argument:: name
 argument:: input
 argument:: callback
@@ -300,6 +310,36 @@ That(\ampTest).clear;
 Ndef(\thatSound).clear;
 ::
 
+SUBSECTION::Custom analyzerFunction
+
+Although there are a variety of analyzerFunctions provided via the
+constructors it is possible to write such a custom function.
+
+code::
+(
+f = {|in|
+	// in is the input of the attached That instance
+	(
+		\amp: Amplitude.kr(in),
+		\freq: Tartini.kr(in),
+		// it is important to provide a trigger key which triggers
+		// the sending of a OSC message from
+		\trigger: Impulse.kr(1.0),
+	)
+};
+That(
+	name: \thatCustom,
+	input: Ndef(\thatSound, {SinOsc.ar(LinExp.kr(LFNoise0.kr(1.0), -1.0, 1.0, 100, 200))}).play,
+	analyzerFunction: f,
+	callback: {|r| r.postln;}
+);
+)
+
+// clear
+That(\thatCustom).clear;
+Ndef(\thatSound).clear;
+::
+
 SUBSECTION::Feedback
 
 
@@ -330,8 +370,4 @@ That.freq(
 )
 ::
 
-SUBSECTION::Custom analyzerFunction
-
 SUBSECTION::Writing events into a stack
-
-
