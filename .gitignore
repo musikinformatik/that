@@ -1,26 +1,37 @@
-# General
+# mac related files
 .DS_Store
-.AppleDouble
-.LSOverride
+platform/mac/Intermediate Build Files
+platform/mac/*.xcodeproj/*.mode1
+platform/mac/*.xcodeproj/*.pbxuser
+platform/mac/*.xcodeproj/*.mode1v3
+platform/mac/build
 
-# Icon must end with two \r
-Icon
+# Windows related files
+*Thumbs.db
+CMakeLists.txt.user
+external_libraries/portaudio/asio*
 
-# Thumbnails
-._*
+# working files made by packager script
+common/Packager/LinuxExclusions.txt
+common/Packager/SuperCollider*.tar.gz
+common/Packager/SuperCollider*.dmg
 
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
+# source tarball
+package/*.bz2
+package/*.asc
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# CLion files
+.idea
+cmake-build-*
+
+# Python/PyCharm files
+venv
+__pycache__
+
+#build directories
+/build*
+
+*~
+*.orig
+#vim swap files
+.*.sw?
