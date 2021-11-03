@@ -15,7 +15,7 @@ This allows the creation of autonomous systems such as Voyager by George Lewis, 
 SUBSECTION::Technical
 
 SuperCollider is designed in such a way that sclang sends OSC messages to the server.
-This way of communication is well established, e.g. when adding a link::Classes/SynthDef:: to the server it gets transferred from sclang to the server via OSC as the server is only capable of generatin sound.
+This way of communication is well established, e.g. when adding a link::Classes/SynthDef:: to the server it gets transferred from sclang to the server via OSC as the server is only capable of generating sound.
 For more information on this please refer to link::Guides/OSC_communication::.
 
 But communicating values from the server (so a value of a link::Classes/UGen::) to sclang has always been a bit tricky but possible via link::Classes/SendReply::.
