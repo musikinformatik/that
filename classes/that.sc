@@ -35,7 +35,7 @@ That {
 			analyzerFunction !? { res.analyzerFunction = analyzerFunction };
 			callback !? { res.callback = callback };
 		});
-		^res;
+		^res
 	}
 
 	init {
@@ -58,7 +58,6 @@ That {
 	analyzerFunction_ {|newAnalyzerFunction|
 		analyzerFunction = newAnalyzerFunction;
 		this.prUpdateDefs();
-
 	}
 
 	prUpdateDefs {
@@ -143,9 +142,9 @@ That {
 
 	*prCreateTrigger {|in, defaultTrigger, triggerFunction|
 		^if(triggerFunction.isNil, {
-			defaultTrigger;
+			defaultTrigger
 		}, {
-			triggerFunction.(in, defaultTrigger);
+			triggerFunction.(in, defaultTrigger)
 		});
 	}
 
@@ -162,7 +161,7 @@ That {
 				amp: amp,
 			);
 		};
-		^this.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback)
 	}
 
 	*freq {|name, input, callback, triggerFunction|
@@ -195,7 +194,7 @@ That {
 
 			)
 		};
-		^this.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback)
 	}
 
 	*freqTime {|name, input, callback, triggerFunction|
@@ -229,7 +228,7 @@ That {
 				amp:  Amplitude.kr(input),
 			)
 		};
-		^this.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback)
 	}
 
 	*identity {|name, input, callback, triggerFunction|
@@ -239,7 +238,7 @@ That {
 				identity: in,
 			)
 		};
-		^this.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback)
 	}
 
 	*mfcc {|name, input, callback, triggerFunction, fftSize=1024|
@@ -254,6 +253,6 @@ That {
 				spectrum: spectrum,
 			)
 		};
-		^this.new(name, input, analyzerFunction, callback);
+		^this.new(name, input, analyzerFunction, callback)
 	}
 }
