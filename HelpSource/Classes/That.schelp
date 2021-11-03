@@ -19,7 +19,7 @@ This way of communication is well established, e.g. when adding a link::Classes/
 For more information on this please refer to link::Guides/OSC_communication::.
 
 But communicating values from the server (so a value of a link::Classes/UGen::) to sclang has always been a bit tricky but possible via link::Classes/SendReply::.
-That is a framework which helps reducing the overhead of the server->language communication.
+That is a framework which helps reducing the cognitive and maintenance overhead of the server->language communication.
 
 That relies on an input signal on which an EMPHASIS::analyzer:: can be applied upon.
 The result of the analyzer (which is an link::Classes/Event::) gets calculated on the server and send back to sclang via OSC.
