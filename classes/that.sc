@@ -77,7 +77,12 @@ That {
 			numInputChannels = inputChannels.size;
 
 			analyzerResults = inputChannels.collect { |inputChannel, i|
-				// is .value(...) some multichannel stuff?
+				// .value is a call on a function that returns an event with signal graphs
+				// of UGens. If it specifies the arguments (which is optional),
+				// it can make the resulting signal graphs depend on them or add extra
+				// information to the event. E.g. besides each channel, it can access
+				// all other input channels and the index of the current
+				// channel (in a multichannel analysis signal).
 				analyzerFunction.value(inputChannel, inputChannels, i);
 			};
 
