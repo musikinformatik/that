@@ -3,7 +3,7 @@
 	\path: 			"that",
 	\summary:		"",
 	\isCompatible:	{ Main.versionAtMost(3, 10).not },
-	\author: 		"Julian Rohrhuber",
+	\author: 		"Julian Rohrhuber, Dennis Scheiba",
 	\organisation:	"IMM Duesseldorf",
 	\helpdoc:		"help",
 	\since: 		"2020",
