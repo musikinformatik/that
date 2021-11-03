@@ -1,7 +1,7 @@
 TITLE:: That
 summary:: Server to sclang communication via OSC used for real time analysis
 categories:: Undocumented classes
-related:: Classes/Tartini, Classes/Amplitude, Classes/MFCC, Classes/OSCdef, Classes/Ndef, Classes/SendReply
+related:: Classes/SendReply, Classes/Amplitude, Classes/OSCFunc, Classes/Ndef
 
 DESCRIPTION::
 
@@ -23,7 +23,7 @@ That is a framework which helps reducing the cognitive and maintenance overhead 
 
 That relies on an input signal on which an EMPHASIS::analyzer:: can be applied upon.
 The result of the analyzer (which is an link::Classes/Event::) gets calculated on the server and send back to sclang via OSC.
-The analyzer runs as a link::Classes/Ndef:: on the server (with a separated namespace by prepending EMPHASIS::that_:: on its name) and the receiving link::Classes/OSCdef:: function receives those values and stores its value to the That instance and also allows for a callback everytime a new value is received.
+The analyzer runs as a link::Classes/Ndef:: on the server (with a separated namespace by prepending EMPHASIS::that_:: on its name) and the receiving link::Classes/OSCFunc:: function receives those values and stores its value to the That instance and also allows for a callback everytime a new value is received.
 
 SUBSECTION::Hello world examlpe
 
@@ -89,7 +89,7 @@ an link::Classes/Event:: in which all running that instances are registered
 METHOD:: new
 Creates a new That analyzer from scratch. Take a look at the constructors which use an existing analyzerFunction or at the examples.
 argument:: name
-Unique link::Classes/Symbol:: which is also used to internally set up the link::Classes/Ndef:: for the analyzer and the link::Classes/OSCdef:: for communication.
+Unique link::Classes/Symbol:: which is also used to internally set up the link::Classes/Ndef:: for the analyzer and the link::Classes/OSCFunc:: for communication.
 argument:: input
 Either a link::Classes/SynthDef::, a link::Classes/Function:: or a link::Classes/Ndef:: which is the signal one wants to perform analysis on.
 argument:: analyzerFunction
@@ -153,7 +153,7 @@ argument:: fftSize
 
 INSTANCEMETHODS::
 
-PRIVATE:: prCreateNdef, prCreateOscDef, prUpdateDefs
+PRIVATE:: prCreateNdef, prCreateOscFunc, prUpdateDefs
 
 METHOD:: analyzerFunction
 Allows to replace the analyzerFunction while running. Check source code for further information on how such an analyzerFunction needs to look like.
@@ -173,7 +173,7 @@ Ndef(\thatSound).clear;
 ::
 
 METHOD:: clear
-Clears the internally created link::Classes/OSCdef:: and link::Classes/Ndef:: and therefore also stops evaluating the input signal.
+Frees the internally created link::Classes/OSCFunc:: and link::Classes/Ndef:: and therefore also stops evaluating the input signal.
 
 METHOD:: latestValue
 Allows to access the latest value send from the analyzer independent of a callback.
