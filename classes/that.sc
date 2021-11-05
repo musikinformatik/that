@@ -256,3 +256,74 @@ That {
 		^this.new(name, input, analyzerFunction, callback)
 	}
 }
+
+
+
+TestThat : UnitTest {
+	test_cleanUp {
+		var that;
+
+		// this.bootServer makes this test fail so we manually boot the server
+		Server.default.bootSync;
+
+		that = That.amp(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {}, {Impulse.kr(10)});
+		1.0.wait;
+
+		this.assertEquals(That(\foo).latestValue[0], 1.0, "Latest value from analyzer does not match!");
+		this.assert(OSCdef.all.keys.includes(\that_foo), "OSCdef should be created with proper name");
+		this.assert(Ndef.all[\localhost].at(\that_foo).isPlaying, "Analyzer Ndef should be playing");
+
+		That(\foo).clear;
+		1.0.wait;
+
+		this.assertEquals(OSCdef.all.keys.includes(\that_foo), false, "OSCdef should be deleted after clearing That");
+		this.assertEquals(Ndef.all[\localhost].at(\that_foo).isPlaying, false, "Analyzer Ndef should be deleted after clearing That");
+	}
+
+	test_updateCallback {
+		var that;
+		var foo;
+		var bar;
+
+		Server.default.bootSync;
+
+		that = That.amp(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {|r| foo=r;}, {Impulse.kr(10)});
+		1.0.wait;
+
+		this.assert(foo.isNil.not);
+
+		That.amp(\foo).callback = {|r| bar=r;};
+		0.2.wait;
+
+		this.assert(bar.isNil.not);
+	}
+
+	test_updateInput {
+		var that;
+
+		Server.default.bootSync;
+
+		that = That.identity(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {}, {Impulse.kr(10)});
+		1.0.wait;
+		this.assertFloatEquals(That(\foo).latestValue[0], 1.0, "Latest value should be 1.0");
+
+		That(\foo).input = {XLine.kr(-1.0, -1.0, dur: 100.0)};
+		1.0.wait;
+		this.assertFloatEquals(That(\foo).latestValue[0], -1.0, "Latest value should be 0.0 after update");
+	}
+
+	test_updateTrigger {
+		var that;
+		var counter = 0;
+
+		Server.default.bootSync;
+
+		that = That.amp(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {counter = counter+1}, {Impulse.kr(1)});
+		1.0.wait;
+		this.assert(counter<10, "Should not trigger too often");
+
+		That.amp(\foo, callback: {counter = counter+1} ,triggerFunction: {Impulse.kr(100.0)});
+		1.0.wait;
+		this.assert(counter>=50, "Trigger more often after update");
+	}
+}
