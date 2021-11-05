@@ -408,3 +408,115 @@ That.freq(
 )
 ::
 
+SUBSECTION::Markov Chain
+
+code::
+(
+// create an event in which we store our markov functions
+q = q?();
+// some parameters to tweak
+q[\timeStep] = 0.05;
+q[\timeMax] = 2.0;
+q[\noteRange] = (0..88);
+
+// init some private varibales
+q[\lastMidiNote] = 0;
+q[\currentTime] = 0;
+q[\lastTime] = 0;
+q[\lowInitValue] = 1e-5;
+
+// helper function
+q[\maxTimeStep] = (q[\timeMax]/q[\timeStep]).asInteger;
+q[\timeMapper] = {|t| ((t/q[\timeStep]).roundUp).min(q[\maxTimeStep]-1)};
+q[\timeMapperReverse] = {|s| s*q[\timeStep]};
+
+// create 88x88 transition matrix for midi notes
+// which is diagonal so we will create a chromatic glissando
+// as an init distribution
+q[\markovNote] = (q[\noteRange].size-1).collect({|i|
+	(q[\noteRange].size-1).collect({|j|
+		if((i+1)==j, {q[\lowInitValue]}, {0});
+	})
+});
+// add 87->0
+q[\markovNote][q[\noteRange].last-1][q[\noteRange].first] = q[\lowInitValue];
+
+// create maxTimeStep x maxTimeStep transition matrix for
+//time events which init is random
+q[\markovTime] = (q[\maxTimeStep]).collect({
+	(q[\maxTimeStep]).collect({
+		// same init as notes
+		q[\lowInitValue];
+	})
+});
+)
+
+(
+// create some input signal - play is optional
+Ndef(\guitar, {
+	SoundIn.ar(0)
+}).play;
+)
+
+(
+// we use the results of our analyzers to modify the markov
+// transition matrix to reflect our playing
+That.freqTime(\thatGuitar,
+	input: Ndef(\guitar),
+	callback: {|r|
+		var midiNote = r[\freq][0].cpsmidi.round;
+		q[\currentTime] = q[\currentTime] + r[\timePassed][0];
+
+		if(q[\lastMidiNote] != midiNote, {
+			var time = q[\timeMapper].(q[\currentTime]);
+			// increment markov matrix counter
+			q[\markovNote][q[\lastMidiNote]][midiNote] = q[\markovNote][q[\lastMidiNote]][midiNote] + 1;
+			q[\markovTime][q[\lastTime]][time] = q[\markovTime][q[\lastTime]][time] + 1;
+
+			// re-adjust state
+			q[\lastMidiNote] = midiNote;
+			q[\lastTime] = time;
+			q[\currentTime] = 0;
+
+			["humanPlayer", time, midiNote].postln; // debug
+		});
+	},
+);
+)
+
+(
+// some synth to be played
+SynthDef(\sinePerc, {|out|
+	var sig = SinOscFB.ar(\freq.kr(200), \feedback.kr(1.0))*\amp.kr(0.5);
+	var env = EnvGen.kr(Env.perc, doneAction: Done.freeSelf);
+	sig = Pan2.ar(sig*env, 1.0); // map the output to the right channel
+	Out.ar(out, sig);
+}).add;
+
+// play the synth according to the markov transition matrix
+Tdef(\markovPlayer, {
+	var curNote = q[\noteRange].choose;
+	var curTime = 0;
+	inf.do({
+		// choose next event based on distribution of the markov transition matrix
+		curNote = q[\noteRange].wchoose(q[\markovNote][curNote].normalizeSum);
+		curTime = (0..q[\maxTimeStep]).wchoose(q[\markovTime][curTime].normalizeSum);
+		(
+			\instrument: \sinePerc,
+			\freq: curNote.midicps,
+		).play;
+		["markovPlayer", curTime, curNote].postln; // debug
+		q[\timeMapperReverse].(curTime).wait;
+	});
+}).play;
+)
+
+// stop and clean up
+(
+Tdef(\markovPlayer).clear;
+Tdef(\guitar).clear;
+That(\thatGuitar).clear;
+q = nil;
+)
+
+::
