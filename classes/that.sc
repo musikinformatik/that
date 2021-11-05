@@ -15,7 +15,7 @@ That {
 	var defName; // name used for OSCdef and Ndef keys
 	var oscChannelName; // osc channel name to send messages from server to sclang
 	var numInputChannels; // needed for unwrapping multichannel results
-	var oscFunc; // responds to messages from analyzer
+	var oscdef; // responds to messages from analyzer
 
 	*initClass {
 		all = ();
@@ -45,7 +45,7 @@ That {
 	}
 
 	clear {
-		oscFunc.free;
+		OSCdef(defName).free;
 		Ndef(defName).clear;
 		all[name] = nil;
 	}
@@ -62,7 +62,7 @@ That {
 
 	prUpdateDefs {
 		this.prCreateNdef();
-		this.prCreateOscFunc();
+		this.prCreateOscDef();
 	}
 
 	prCreateNdef {
@@ -112,8 +112,8 @@ That {
 		});
 	}
 
-	prCreateOscFunc {
-		oscFunc = OSCFunc({ |msg|
+	prCreateOscDef {
+		oscdef = OSCdef(defName, { |msg|
 			var values = msg[3..];
 			var event = ();
 			// msg[2] is replyID of SendReply which we set fixed to -1
