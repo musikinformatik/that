@@ -1,7 +1,7 @@
 TITLE:: That
 summary:: Server to sclang communication via OSC used for real time analysis
 categories:: Undocumented classes
-related:: Classes/Tartini, Classes/Amplitude, Classes/MFCC, Classes/OSCdef, Classes/Ndef, Classes/SendReply
+related:: Guides/OSC_communication, Classes/SendReply, Classes/OSCdef, Classes/Ndef, Classes/Amplitude
 
 DESCRIPTION::
 
@@ -30,23 +30,26 @@ SUBSECTION::Hello world examlpe
 Before we start discussing each fragment of That we will demonstrate it.
 
 code::
-
-// create a simple sound via an Ndef
+// create a simple sound via an Ndef which we want to analyze
 (
 Ndef(\thatSound, {
-	SinOscFB.ar(
-		freq: LinExp.kr(
-			in: LFNoise2.kr([1.5, 0.7]),
-			srclo: -1.0,
-			dstlo: 200.0,
-			dsthi: 1000.0,
-		),
-		feedback: LFNoise0.kr(1.5)
-	)*EnvGen.kr(Env.perc, gate: Impulse.kr([1.2, 1.0]))*0.2;
+    SinOscFB.ar(
+        freq: LinExp.kr(
+            in: LFNoise2.kr([1.5, 0.7]),
+            srclo: -1.0,
+            dstlo: 200.0,
+            dsthi: 1000.0,
+        ),
+        feedback: LFNoise0.kr([1.5, 2.0])
+    )*EnvGen.kr(
+		envelope: Env.perc,
+		gate: Impulse.kr(LFNoise1.kr([1.2, 1.0], add: 0.7))
+	)*0.5;
 }).play;
 )
 
-// now analyze the amp of it
+// we can use contsructors of That which analyse of specific
+// parameters, e.g. the amplitude
 (
 That.amp(
 	name: \ampTest,
@@ -57,25 +60,60 @@ That.amp(
 )
 // the callback gets called 5 times a secound and prints the amp of both channels now
 
-// change the callback
+// change the callback to calculate the difference between both channels
 That(\ampTest).callback = {|r| (r[0] - r[1]).postln}
 
 // clear it like a Ndef
 That(\ampTest).clear;
 
 // now analyze the played frequencies
+// note that we have not defined a callback
 (
 That.freq(
 	name: \freqTest,
 	input: Ndef(\thatSound),
 )
 )
-// note that we have not defined a callback
 // but we can still access the values via
 That(\freqTest).latestValue
+// stopping the analysis is as easy as
+That(\freqTest).clear;
+
+// We are also not bound to using Ndefs as input
+// and can easily make our trigger depened on the input signal
+(
+That.amp(\ampTest,
+	input: {SinOsc.ar(0.1)},
+	callback: {|r| r.postln},
+	// only trigger if SinOsc is above 0.6 and rate limit it by 10 Hz
+	triggerFunction: {|in| (in.abs > 0.6)*Impulse.kr(10.0) },
+)
+)
+That(\ampTest).clear;
+
+// and we are not limited to using the predefined constructors
+// as we can use the .new constructor to create an analyzer from scratch.
+// Notice that in this constructor we do not have a triggerFunction
+// as the analyzerFunction takes care of triggering the callback
+(
+That(\thatAnalyzer,
+	input: Ndef(\thatSound),
+	analyzerFunction: {|in|
+		(
+			\amp: Amplitude.kr(in),
+			\impulseClock: Pulse.kr(1.1),
+			// the trigger defines when
+			// the callback is called
+			\trigger: Impulse.kr(5.0),
+		)
+	},
+	callback: {|r| r.postln;},
+)
+)
+That(\thatAnalyzer).clear;
+
 
 // thats enough for a hello world
-That(\freqTest).clear;
 Ndef(\thatSound).clear;
 ::
 
@@ -93,7 +131,7 @@ Unique link::Classes/Symbol:: which is also used to internally set up the link::
 argument:: input
 Either a link::Classes/SynthDef::, a link::Classes/Function:: or a link::Classes/Ndef:: which is the signal one wants to perform analysis on.
 argument:: analyzerFunction
-Function which analyzes the signal. For specifics check out the source code of the constructors such as amp.
+Function which analyzes the signal and determines the times when the callback is called. The first parameter of the function is the providid input signal. The function must return an link::Classes/Event:: with at least the key EMPHASIS::trigger:: with a link::Classes/UGen:: as value which defines the times when the callback function gets called .For specifics check out the examples.
 argument:: callback
 A function which gets called when the analyzerFunction returns a new value. The first parameter of the d function is the result of the analyzer. Iff the analyzerFunction returns one value it is an link::Classes/Array:: of values with the respecting number of input channels, otherwhise the argument will be an link::Classes/Event:: with key-value pairs of name of the parameter and its channel array.
 RETURNS:: The created That instance
@@ -116,7 +154,7 @@ argument:: callback
 argument:: triggerFunction
 
 METHOD:: freqTime
-A constructor which uses link::Classes/Tartini::, link::Classes/Onsets:: to analyse the pitch and onsets of each channel of the signal.
+A constructor which uses link::Classes/Tartini:: to analyse the pitch and link::Classes/Onsets:: to analyse the onsets on each channel of the signal.
 See new and amp for more information on the parameters.
 argument:: name
 argument:: input
@@ -370,4 +408,3 @@ That.freq(
 )
 ::
 
-SUBSECTION::Writing events into a stack
