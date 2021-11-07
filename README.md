@@ -16,8 +16,7 @@ install the extension.
 Quarks.install("https://github.com/musikinformatik/that.git");
 ```
 
-After installation please re-compile the Class Library (aka restart the
-Interpreter) to make the class available in the interpreter.
+After installation please re-compile the Class Library (which is done by restarting the interpreter) to make the class available in the interpreter.
 
 ## Documentation
 
