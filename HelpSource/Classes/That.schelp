@@ -1,0 +1,522 @@
+TITLE:: That
+summary:: Server to sclang communication via OSC used for real time analysis
+categories:: Undocumented classes
+related:: Guides/OSC_communication, Classes/SendReply, Classes/OSCdef, Classes/Ndef, Classes/Amplitude
+
+DESCRIPTION::
+
+emphasis::This system is called "that", as in "you know that".::
+
+This is a condensed version of the real time sound analysis we did in the Musikinformatik seminar May/June 2021 @ RSH Düsseldorf which was rewritten into a Quark.
+
+That allows to use values of UGens (which are running on the server) in the sclang domain which allows for interaction with live material by using analysis UGens on the signal.
+This allows the creation of autonomous systems such as Voyager by George Lewis, but is not limited to that.
+
+SUBSECTION::Technical
+
+SuperCollider is designed in such a way that sclang sends OSC messages to the server.
+This way of communication is well established, e.g. when adding a link::Classes/SynthDef:: to the server it gets transferred from sclang to the server via OSC as the server is only capable of generating sound.
+For more information on this please refer to link::Guides/OSC_communication::.
+
+But communicating values from the server (so a value of a link::Classes/UGen::) to sclang has always been a bit tricky but possible via link::Classes/SendReply::.
+That is a framework which helps reducing the cognitive and maintenance overhead of the server->language communication.
+
+That relies on an input signal on which an EMPHASIS::analyzer:: can be applied upon.
+The result of the analyzer (which is an link::Classes/Event::) gets calculated on the server and send back to sclang via OSC.
+The analyzer runs as a link::Classes/Ndef:: on the server (with a separated namespace by prepending EMPHASIS::that_:: on its name) and the receiving link::Classes/OSCdef:: function receives those values and stores its value to the That instance and also allows for a callback everytime a new value is received.
+
+SUBSECTION::Hello world examlpe
+
+Before we start discussing each fragment of That we will demonstrate it.
+
+code::
+// create a simple sound via an Ndef which we want to analyze
+(
+Ndef(\thatSound, {
+    SinOscFB.ar(
+        freq: LinExp.kr(
+            in: LFNoise2.kr([1.5, 0.7]),
+            srclo: -1.0,
+            dstlo: 200.0,
+            dsthi: 1000.0,
+        ),
+        feedback: LFNoise0.kr([1.5, 2.0])
+    )*EnvGen.kr(
+		envelope: Env.perc,
+		gate: Impulse.kr(LFNoise1.kr([1.2, 1.0], add: 0.7))
+	)*0.5;
+}).play;
+)
+
+// we can use contsructors of That which analyse of specific
+// parameters, e.g. the amplitude
+(
+That.amp(
+	name: \ampTest,
+	input: Ndef(\thatSound),
+	callback: {|result| result.postln;},
+	triggerFunction: {|in, defaultTrigger| Impulse.kr(5)},
+);
+)
+// the callback gets called 5 times a secound and prints the amp of both channels now
+
+// change the callback to calculate the difference between both channels
+That(\ampTest).callback = {|r| (r[0] - r[1]).postln}
+
+// clear it like a Ndef
+That(\ampTest).clear;
+
+// now analyze the played frequencies
+// note that we have not defined a callback
+(
+That.freq(
+	name: \freqTest,
+	input: Ndef(\thatSound),
+)
+)
+// but we can still access the values via
+That(\freqTest).latestValue
+// stopping the analysis is as easy as
+That(\freqTest).clear;
+
+// We are also not bound to using Ndefs as input
+// and can easily make our trigger depened on the input signal
+(
+That.amp(\ampTest,
+	input: {SinOsc.ar(0.1)},
+	callback: {|r| r.postln},
+	// only trigger if SinOsc is above 0.6 and rate limit it by 10 Hz
+	triggerFunction: {|in| (in.abs > 0.6)*Impulse.kr(10.0) },
+)
+)
+That(\ampTest).clear;
+
+// and we are not limited to using the predefined constructors
+// as we can use the .new constructor to create an analyzer from scratch.
+// Notice that in this constructor we do not have a triggerFunction
+// as the analyzerFunction takes care of triggering the callback
+(
+That(\thatAnalyzer,
+	input: Ndef(\thatSound),
+	analyzerFunction: {|in|
+		(
+			\amp: Amplitude.kr(in),
+			\impulseClock: Pulse.kr(1.1),
+			// the trigger defines when
+			// the callback is called
+			\trigger: Impulse.kr(5.0),
+		)
+	},
+	callback: {|r| r.postln;},
+)
+)
+That(\thatAnalyzer).clear;
+
+
+// thats enough for a hello world
+Ndef(\thatSound).clear;
+::
+
+CLASSMETHODS::
+
+PRIVATE:: initClass, prCreateTrigger
+
+METHOD:: all
+an link::Classes/Event:: in which all running that instances are registered
+
+METHOD:: new
+Creates a new That analyzer from scratch. Take a look at the constructors which use an existing analyzerFunction or at the examples.
+argument:: name
+Unique link::Classes/Symbol:: which is also used to internally set up the link::Classes/Ndef:: for the analyzer and the link::Classes/OSCdef:: for communication.
+argument:: input
+Either a link::Classes/SynthDef::, a link::Classes/Function:: or a link::Classes/Ndef:: which is the signal one wants to perform analysis on.
+argument:: analyzerFunction
+Function which analyzes the signal and determines the times when the callback is called. The first parameter of the function is the providid input signal. The function must return an link::Classes/Event:: with at least the key EMPHASIS::trigger:: with a link::Classes/UGen:: as value which defines the times when the callback function gets called .For specifics check out the examples.
+argument:: callback
+A function which gets called when the analyzerFunction returns a new value. The first parameter of the d function is the result of the analyzer. Iff the analyzerFunction returns one value it is an link::Classes/Array:: of values with the respecting number of input channels, otherwhise the argument will be an link::Classes/Event:: with key-value pairs of name of the parameter and its channel array.
+RETURNS:: The created That instance
+
+METHOD:: amp
+A constructor which uses link::Classes/Amplitude:: to analyse the amplitude of each channel of the signal.
+See new for more information on the parameters.
+argument:: name
+argument:: input
+argument:: callback
+argument:: triggerFunction
+A function which allows to specify the triggering of messages. The first parameter is the input signal and the secound parameter is the default trigger of the analyzerFunction. Take a look at the examples or the source code for more information.
+
+METHOD:: freq
+A constructor which uses link::Classes/Tartini:: to analyse the pitch of each channel of the signal.
+See new and amp for more information on the parameters.
+argument:: name
+argument:: input
+argument:: callback
+argument:: triggerFunction
+
+METHOD:: freqTime
+A constructor which uses link::Classes/Tartini:: to analyse the pitch and link::Classes/Onsets:: to analyse the onsets on each channel of the signal.
+See new and amp for more information on the parameters.
+argument:: name
+argument:: input
+argument:: callback
+argument:: triggerFunction
+
+METHOD:: identity
+A constructor which allows to access the raw values of the input signal.
+See new and amp for more information on the parameters.
+code::
+(
+That.identity(
+	name: \thatIdentity,
+	input: {SinOsc.ar(0.2)},
+	callback: {|r| r.postln;}
+)
+)
+That(\thatIdentity).clear;
+::
+argument:: name
+argument:: input
+argument:: callback
+argument:: triggerFunction
+
+METHOD:: mfcc
+A constructor which uses link::Classes/MFCC:: to analyse the mel spectogram of the mono signal.
+See new and amp for more information on the parameters.
+argument:: name
+argument:: input
+argument:: callback
+argument:: triggerFunction
+argument:: fftSize
+
+
+INSTANCEMETHODS::
+
+PRIVATE:: prCreateNdef, prCreateOscDef, prUpdateDefs
+
+METHOD:: analyzerFunction
+Allows to replace the analyzerFunction while running. Check source code for further information on how such an analyzerFunction needs to look like.
+argument:: newAnalyzerFunction
+
+METHOD:: analyzer
+Allows access to the link::Classes/Ndef:: which runs the analyzerFunction which can be used to adjust the parameters of the analyzer, e.g.
+code::
+Ndef(\thatSound, {SinOsc.ar*(SinOsc.ar(0.5).pow(8))*0.2}).play;
+
+That.amp(\ampTest, Ndef(\thatSound), {|a| a.postln});
+That(\ampTest).analyzer.gui;
+
+// clear up
+That(\ampTest).clear;
+Ndef(\thatSound).clear;
+::
+
+METHOD:: clear
+Clears the internally created link::Classes/OSCdef:: and link::Classes/Ndef:: and therefore also stops evaluating the input signal.
+
+METHOD:: latestValue
+Allows to access the latest value send from the analyzer independent of a callback.
+
+METHOD:: name
+Name of That.
+
+METHOD:: input
+Input used to analyse the material, possible to change while running.
+code::
+(
+Ndef(\thatSound, {SinOsc.ar*0.2});
+Ndef(\thatOtherSound, {Saw.ar*0.1});
+That.amp(\thatTest, Ndef(\thatSound), {|r| r.postln}, {Impulse.kr(1.0)});
+)
+// now change the input
+That(\thatTest).input = Ndef(\thatOtherSound);
+
+// clear up
+(
+That(\thatTest).clear;
+Ndef(\thatSound).clear;
+Ndef(\thatOtherSound).clear;
+)
+::
+argument:: newInput
+
+METHOD:: callback
+Allows to access and replace the callback function.
+
+EXAMPLES::
+
+SUBSECTION::Amplitude analysis
+
+code::
+// start by creating a sound
+
+(
+Ndef(\thatSound, {
+    SinOscFB.ar(
+        freq: LinExp.kr(
+            in: LFNoise2.kr([1.5, 0.7]),
+            srclo: -1.0,
+            dstlo: 200.0,
+            dsthi: 1000.0,
+        ),
+        feedback: LFNoise0.kr(1.5)
+    )*EnvGen.kr(Env.perc, gate: Impulse.kr([1.2, 1.0]))*0.2;
+}).play;
+)
+
+// we will use amplitude analysis as a simple example to explain everything
+// further down are examples for more complicated analysis forms.
+(
+That.amp(
+	name: \ampTest,
+	input: Ndef(\thatSound),
+	callback: {|result| result.postln},
+	triggerFunction: {Impulse.kr(10)}
+);
+)
+
+// the analyzerFunction runs in a Ndef which is
+// accessible by .analyzer
+That(\ampTest).analyzer
+// we can pause the execution of the analyzer
+// by pausing this ndef
+That(\ampTest).analyzer.pause
+// and can also wake it up again
+That(\ampTest).analyzer.resume;
+
+// we can change the triggerFunction while it is running
+// because the triggerFunction is attached to the analyzer
+// we must use the constructor ".amp"
+// which will build us a new analyzerFunction which respects
+// the new trigger
+
+// we will explicetely state the input as this allows for non-linear
+// working through the examples
+(
+That.amp(
+	name: \ampTest,
+	input: Ndef(\thatSound), // optional
+	triggerFunction: {Impulse.kr(2)}
+);
+)
+
+// We can also use the default trigger
+// by explicetely setting the default trigger
+(
+That.amp(
+	name: \ampTest,
+	input: Ndef(\thatSound), // optional
+	triggerFunction: {|in, defaultTrigger| defaultTrigger},
+);
+)
+// now we can tweak the parameters of this analyzer
+// via the Ndef gui
+That(\ampTest).analyzer.gui;
+
+// We can also create a trigger which takes
+// account of the original trigger and custom
+// behaviour
+(
+That.amp(
+	name: \ampTest,
+	input: Ndef(\thatSound), // optional
+	triggerFunction: {|in, defaultTrigger| defaultTrigger * Impulse.kr(5)},
+);
+)
+// This now only updates if our defaultTrigger is active
+// and is rate to 5 Hz limited by multiplying
+// an impulse to it which acts as a boolean AND
+
+// We can also create a logical or
+// but for this we want another signal
+
+Ndef(\thatSound, {SinOscFB.ar(LinExp.kr(LFNoise0.kr([1.0, 3.4]), -1.0, 1.0, 100, 400), feedback: LFNoise0.kr([4, 7]).abs)*EnvGen.kr(Env.perc, gate: Impulse.kr([0.5, 0.15]))*0.2}).play;
+// note that our analyzer immediately picks up the
+// changed signal
+
+// now lets use an OR, at least an update at 5Hz
+(
+That.amp(
+	name: \ampTest,
+	input: Ndef(\thatSound), // optional
+	triggerFunction: {|in, defaultTrigger| (defaultTrigger + Impulse.kr(5))}
+);
+)
+
+// after we have finished our analysis we can
+// clear our that instance just like a Ndef
+That(\ampTest).clear;
+Ndef(\thatSound).clear;
+::
+
+SUBSECTION::Custom analyzerFunction
+
+Although there are a variety of analyzerFunctions provided via the
+constructors it is possible to write such a custom function.
+
+code::
+(
+f = {|in|
+	// in is the input of the attached That instance
+	(
+		\amp: Amplitude.kr(in),
+		\freq: Tartini.kr(in),
+		// it is important to provide a trigger key which triggers
+		// the sending of a OSC message from
+		\trigger: Impulse.kr(1.0),
+	)
+};
+That(
+	name: \thatCustom,
+	input: Ndef(\thatSound, {SinOsc.ar(LinExp.kr(LFNoise0.kr(1.0), -1.0, 1.0, 100, 200))}).play,
+	analyzerFunction: f,
+	callback: {|r| r.postln;}
+);
+)
+
+// clear
+That(\thatCustom).clear;
+Ndef(\thatSound).clear;
+::
+
+SUBSECTION::Feedback
+
+
+code::
+
+// lets load and play a buffer
+b = Buffer.read(s, Platform.resourceDir.openOS +/+ "sounds/a11wlk01.wav");
+(
+Ndef(\input, {|rate=1|
+	PlayBuf.ar(b.numChannels, b, BufRateScale.kr(b) * rate.lag(1), loop: 1);
+}).play(vol: 0.1);
+)
+
+// now create a synth which feedsback itself via a BPF
+(
+Ndef(\thatSound, { |amp = 1, freq = 500|
+	BPF.ar(Ndef.ar(\thatSound, 1) + PinkNoise.ar(0.01), freq, 0.01, 10).tanh
+}).play(vol: 0.01, out: 1);
+)
+
+// and now control the freq of the BPF via the input signal
+(
+That.freq(
+	name: \inputFreq,
+	input: Ndef(\input),
+	callback: {|r| Ndef(\thatSound).set(\freq, r[0])}
+)
+)
+::
+
+SUBSECTION::Markov Chain
+
+code::
+(
+// create an event in which we store our markov functions
+q = q?();
+// some parameters to tweak
+q[\timeStep] = 0.05;
+q[\timeMax] = 2.0;
+q[\noteRange] = (0..88);
+
+// init some private varibales
+q[\lastMidiNote] = 0;
+q[\currentTime] = 0;
+q[\lastTime] = 0;
+q[\lowInitValue] = 1e-5;
+
+// helper function
+q[\maxTimeStep] = (q[\timeMax]/q[\timeStep]).asInteger;
+q[\timeMapper] = {|t| ((t/q[\timeStep]).roundUp).min(q[\maxTimeStep]-1)};
+q[\timeMapperReverse] = {|s| s*q[\timeStep]};
+
+// create 88x88 transition matrix for midi notes
+// which is diagonal so we will create a chromatic glissando
+// as an init distribution
+q[\markovNote] = (q[\noteRange].size-1).collect({|i|
+	(q[\noteRange].size-1).collect({|j|
+		if((i+1)==j, {q[\lowInitValue]}, {0});
+	})
+});
+// add 87->0
+q[\markovNote][q[\noteRange].last-1][q[\noteRange].first] = q[\lowInitValue];
+
+// create maxTimeStep x maxTimeStep transition matrix for
+//time events which init is random
+q[\markovTime] = (q[\maxTimeStep]).collect({
+	(q[\maxTimeStep]).collect({
+		// same init as notes
+		q[\lowInitValue];
+	})
+});
+)
+
+(
+// create some input signal - play is optional
+Ndef(\guitar, {
+	SoundIn.ar(0)
+}).play;
+)
+
+(
+// we use the results of our analyzers to modify the markov
+// transition matrix to reflect our playing
+That.freqTime(\thatGuitar,
+	input: Ndef(\guitar),
+	callback: {|r|
+		var midiNote = r[\freq][0].cpsmidi.round;
+		q[\currentTime] = q[\currentTime] + r[\timePassed][0];
+
+		if(q[\lastMidiNote] != midiNote, {
+			var time = q[\timeMapper].(q[\currentTime]);
+			// increment markov matrix counter
+			q[\markovNote][q[\lastMidiNote]][midiNote] = q[\markovNote][q[\lastMidiNote]][midiNote] + 1;
+			q[\markovTime][q[\lastTime]][time] = q[\markovTime][q[\lastTime]][time] + 1;
+
+			// re-adjust state
+			q[\lastMidiNote] = midiNote;
+			q[\lastTime] = time;
+			q[\currentTime] = 0;
+
+			["humanPlayer", time, midiNote].postln; // debug
+		});
+	},
+);
+)
+
+(
+// some synth to be played
+SynthDef(\sinePerc, {|out|
+	var sig = SinOscFB.ar(\freq.kr(200), \feedback.kr(1.0))*\amp.kr(0.5);
+	var env = EnvGen.kr(Env.perc, doneAction: Done.freeSelf);
+	sig = Pan2.ar(sig*env, 1.0); // map the output to the right channel
+	Out.ar(out, sig);
+}).add;
+
+// play the synth according to the markov transition matrix
+Tdef(\markovPlayer, {
+	var curNote = q[\noteRange].choose;
+	var curTime = 0;
+	inf.do({
+		// choose next event based on distribution of the markov transition matrix
+		curNote = q[\noteRange].wchoose(q[\markovNote][curNote].normalizeSum);
+		curTime = (0..q[\maxTimeStep]).wchoose(q[\markovTime][curTime].normalizeSum);
+		(
+			\instrument: \sinePerc,
+			\freq: curNote.midicps,
+		).play;
+		["markovPlayer", curTime, curNote].postln; // debug
+		q[\timeMapperReverse].(curTime).wait;
+	});
+}).play;
+)
+
+// stop and clean up
+(
+Tdef(\markovPlayer).clear;
+Tdef(\guitar).clear;
+That(\thatGuitar).clear;
+q = nil;
+)
+
+::

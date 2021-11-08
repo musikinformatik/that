@@ -35,7 +35,7 @@ q.use { ~that_amplitudeDef(\ampTrack, { ... etc ... }) };
 
 (
 // first, load the function library
-loadRelative("library/that-system-functions.scd"); // you can look at theat file to see how to roll your own
+loadRelative("./that-system-functions.scd"); // you can look at theat file to see how to roll your own
 
 // let's use an Ndef for input, so you can patch in something else:
 Ndef(\input, { SoundIn.ar([0, 1]) });

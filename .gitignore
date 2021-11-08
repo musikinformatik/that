@@ -1,0 +1,37 @@
+# mac related files
+.DS_Store
+platform/mac/Intermediate Build Files
+platform/mac/*.xcodeproj/*.mode1
+platform/mac/*.xcodeproj/*.pbxuser
+platform/mac/*.xcodeproj/*.mode1v3
+platform/mac/build
+
+# Windows related files
+*Thumbs.db
+CMakeLists.txt.user
+external_libraries/portaudio/asio*
+
+# working files made by packager script
+common/Packager/LinuxExclusions.txt
+common/Packager/SuperCollider*.tar.gz
+common/Packager/SuperCollider*.dmg
+
+# source tarball
+package/*.bz2
+package/*.asc
+
+# CLion files
+.idea
+cmake-build-*
+
+# Python/PyCharm files
+venv
+__pycache__
+
+#build directories
+/build*
+
+*~
+*.orig
+#vim swap files
+.*.sw?
