@@ -333,7 +333,7 @@ TestThat : UnitTest {
 	test_access {
 		var that;
 		that = That(\foo);
-		this.assertEquals(that, That(\foo), "That(\name) should return the instance unchanged");
+		this.assert(that === That(\foo), "That(\name) should return the instance unchanged");
 
 	}
 }
