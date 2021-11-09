@@ -45,8 +45,8 @@ That {
 	}
 
 	clear {
-		OSCdef(defName).free;
-		Ndef(defName).clear;
+		analyzer.free;
+		oscdef.clear;
 		all[name] = nil;
 	}
 
