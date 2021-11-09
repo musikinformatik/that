@@ -24,24 +24,18 @@ That {
 	*new { |name, input, analyzerFunction, callback|
 		var res = all.at(name);
 		if(res.isNil, {
-			if(analyzerFunction.isNil, {
-				Error("Please provide an analyzerFunction").throw;
-			});
-			callback = callback ? {}; // enforce a function as callback and not allow nil
-			res = super.newCopyArgs(name, input, analyzerFunction, callback).init;
+			res = super.new.init;
 			all[name] = res;
-		}, {
-			input !? { res.input = input };
-			analyzerFunction !? { res.analyzerFunction = analyzerFunction };
-			callback !? { res.callback = callback };
 		});
+		res.setFunctions(input, analyzerFunction, callback);
 		^res
 	}
 
 	init {
 		defName = "that_%".format(name).asSymbol;
 		oscChannelName = "/that/%".format(name);
-		this.input = input;
+		analyzer = Ndef(defName);
+		oscdef = OSCdef(defName);
 	}
 
 	clear {
@@ -55,9 +49,17 @@ That {
 		this.prUpdateDefs;
 	}
 
-	analyzerFunction_ {|newAnalyzerFunction|
+	analyzerFunction_ { |newAnalyzerFunction|
 		analyzerFunction = newAnalyzerFunction;
 		this.prUpdateDefs;
+	}
+
+	setFunctions { |newInput, newAnalyzerFunction, newCallback|
+		var changed = false;
+		newInput !? { input = newInput; changed = true; };
+		newAnalyzerFunction !? { analyzerFunction = newAnalyzerFunction; changed = true; };
+		newCallback !? { callback = newCallback; changed = true; };
+		if(changed) { this.prUpdateDefs };
 	}
 
 	prUpdateDefs {
@@ -66,6 +68,7 @@ That {
 	}
 
 	prCreateNdef {
+		if(analyzerFunction.isNil) { ^this };
 		analyzer = Ndef(defName, {
 			var inputChannels;
 			var analyzerResults;
@@ -113,6 +116,7 @@ That {
 	}
 
 	prCreateOscDef {
+		if(analyzerFunction.isNil) { ^this };
 		oscdef = OSCdef(defName, { |msg|
 			var values = msg[3..];
 			var event = ();
