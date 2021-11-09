@@ -329,4 +329,11 @@ TestThat : UnitTest {
 		1.0.wait;
 		this.assert(counter >= 50, "Trigger more often after update");
 	}
+
+	test_access {
+		var that;
+		that = That(\foo);
+		this.assertEquals(that, That(\foo), "That(\name) should return the instance unchanged");
+
+	}
 }
