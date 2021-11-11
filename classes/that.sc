@@ -55,11 +55,11 @@ That {
 	}
 
 	setFunctions { |newInput, newAnalyzerFunction, newCallback|
-		var changed = false;
-		newInput !? { input = newInput; changed = true; };
-		newAnalyzerFunction !? { analyzerFunction = newAnalyzerFunction; changed = true; };
-		newCallback !? { callback = newCallback; changed = true; };
-		if(changed) { this.prUpdateDefs };
+		var changedSynth = false;
+		newInput !? { input = newInput; changedSynth = true; };
+		newAnalyzerFunction !? { analyzerFunction = newAnalyzerFunction; changedSynth = true; };
+		newCallback !? { callback = newCallback; };
+		if(changedSynth) { this.prUpdateDefs };
 	}
 
 	prUpdateDefs {
