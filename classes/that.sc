@@ -40,7 +40,7 @@ That {
 
 	clear {
 		analyzer.free;
-		oscdef.clear;
+		oscdef.free;
 		all[name] = nil;
 	}
 
@@ -279,8 +279,8 @@ TestThat : UnitTest {
 		That(\foo).clear;
 		1.0.wait;
 
-		this.assertEquals(OSCdef.all.keys.includes(\that_foo), false, "OSCdef should be deleted after clearing That");
-		this.assertEquals(Ndef.all[\localhost].at(\that_foo).isPlaying, false, "Analyzer Ndef should be deleted after clearing That");
+		this.assert(OSCdef.all.keys.includes(\that_foo).not, "OSCdef should be deleted after clearing That");
+		this.assert(Ndef.all[\localhost].at(\that_foo).isPlaying.not, "Analyzer Ndef should be deleted after clearing That");
 	}
 
 	test_updateCallback {
