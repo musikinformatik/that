@@ -24,7 +24,7 @@ That {
 	*new { |name, input, analyzerFunction, callback|
 		var res = all.at(name);
 		if(res.isNil, {
-			res = super.new.init;
+			res = super.newCopyArgs(name).init;
 			all[name] = res;
 		});
 		res.setFunctions(input, analyzerFunction, callback);
