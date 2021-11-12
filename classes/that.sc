@@ -21,51 +21,54 @@ That {
 		all = ();
 	}
 
-	*new {|name, input, analyzerFunction, callback|
+	*new { |name, input, analyzerFunction, callback|
 		var res = all.at(name);
 		if(res.isNil, {
-			if(analyzerFunction.isNil, {
-				Error("Please provide an analyzerFunction").throw;
-			});
-			callback = callback ? {}; // enforce a function as callback and not allow nil
-			res = super.newCopyArgs(name, input, analyzerFunction, callback).init;
+			res = super.newCopyArgs(name).init;
 			all[name] = res;
-		}, {
-			input !? { res.input = input };
-			analyzerFunction !? { res.analyzerFunction = analyzerFunction };
-			callback !? { res.callback = callback };
 		});
+		res.setFunctions(input, analyzerFunction, callback);
 		^res
 	}
 
 	init {
 		defName = "that_%".format(name).asSymbol;
 		oscChannelName = "/that/%".format(name);
-		this.input = input;
+		analyzer = Ndef(defName);
+		oscdef = OSCdef(defName);
 	}
 
 	clear {
-		OSCdef(defName).free;
-		Ndef(defName).clear;
+		analyzer.free;
+		oscdef.free;
 		all[name] = nil;
 	}
 
-	input_ {|newInput|
+	input_ { |newInput|
 		input = newInput;
-		this.prUpdateDefs();
+		this.prUpdateDefs;
 	}
 
-	analyzerFunction_ {|newAnalyzerFunction|
+	analyzerFunction_ { |newAnalyzerFunction|
 		analyzerFunction = newAnalyzerFunction;
-		this.prUpdateDefs();
+		this.prUpdateDefs;
+	}
+
+	setFunctions { |newInput, newAnalyzerFunction, newCallback|
+		var changedSynth = false;
+		newInput !? { input = newInput; changedSynth = true; };
+		newAnalyzerFunction !? { analyzerFunction = newAnalyzerFunction; changedSynth = true; };
+		newCallback !? { callback = newCallback; };
+		if(changedSynth) { this.prUpdateDefs };
 	}
 
 	prUpdateDefs {
-		this.prCreateNdef();
-		this.prCreateOscDef();
+		this.prCreateNdef;
+		this.prCreateOscDef;
 	}
 
 	prCreateNdef {
+		if(analyzerFunction.isNil) { ^this };
 		analyzer = Ndef(defName, {
 			var inputChannels;
 			var analyzerResults;
@@ -90,7 +93,7 @@ That {
 			// convert to [foo_ch1, foo_ch2, bar_ch1, bar_ch2]
 			oscPayload = analyzerResultKeys.collect({ |key|
 				analyzerResults.collect({ |event|
-					event[key];
+					event[key]
 				});
 			});
 
@@ -99,7 +102,7 @@ That {
 			});
 
 			// sum up all active triggers to perform an OR operation
-			summedTriggers = analyzerResults.collect({|r| r[\trigger]}).sum;
+			summedTriggers = analyzerResults.collect({|r| r[\trigger] }).sum;
 
 			// same as SendReply.kr/ar but rate can be adapted dynamically
 			SendReply.perform(
@@ -113,12 +116,13 @@ That {
 	}
 
 	prCreateOscDef {
+		if(analyzerFunction.isNil) { ^this };
 		oscdef = OSCdef(defName, { |msg|
 			var values = msg[3..];
 			var event = ();
 			// msg[2] is replyID of SendReply which we set fixed to -1
 
-			if(analyzerResultKeys.size==1, {
+			if(analyzerResultKeys.size == 1, {
 				// if only one key exists in we return an array and not a dict
 				event = values
 			}, {
@@ -126,7 +130,7 @@ That {
 				analyzerResultKeys.do { |key, i|
 					// the incoming message looks like [foo_ch1, foo_ch2, bar_ch1, bar_ch2]
 					// and gets transformed to (foo: [foo_ch1, foo_ch2], bar: [bar_ch1, bar_ch2])
-					var arrayOffset = i*numInputChannels;
+					var arrayOffset = i * numInputChannels;
 					event[key] = values[arrayOffset..(arrayOffset+numInputChannels-1)]
 				}
 			});
@@ -140,7 +144,7 @@ That {
 		}, oscChannelName).fix;
 	}
 
-	*prCreateTrigger {|in, defaultTrigger, triggerFunction|
+	*prCreateTrigger { |in, defaultTrigger, triggerFunction|
 		^if(triggerFunction.isNil, {
 			defaultTrigger
 		}, {
@@ -148,7 +152,7 @@ That {
 		});
 	}
 
-	*amp {|name, input, callback, triggerFunction|
+	*amp { |name, input, callback, triggerFunction|
 		var analyzerFunction = {|in|
 			var amp = Amplitude.kr(
 				in: in,
@@ -164,7 +168,7 @@ That {
 		^this.new(name, input, analyzerFunction, callback)
 	}
 
-	*freq {|name, input, callback, triggerFunction|
+	*freq { |name, input, callback, triggerFunction|
 		var analyzerFunction = {|in|
 			var freq;
 			var hasFreq;
@@ -191,13 +195,12 @@ That {
 			(
 				trigger: this.prCreateTrigger(in, defaultTrigger, triggerFunction),
 				freq: freq
-
 			)
 		};
 		^this.new(name, input, analyzerFunction, callback)
 	}
 
-	*freqTime {|name, input, callback, triggerFunction|
+	*freqTime { |name, input, callback, triggerFunction|
 		var analyzerFunction = { |in|
 			var freq;
 			var hasFreq;
@@ -231,7 +234,7 @@ That {
 		^this.new(name, input, analyzerFunction, callback)
 	}
 
-	*identity {|name, input, callback, triggerFunction|
+	*identity { |name, input, callback, triggerFunction|
 		var analyzerFunction = {|in|
 			(
 				trigger: this.prCreateTrigger(in, Impulse.kr(1.0), triggerFunction),
@@ -241,7 +244,7 @@ That {
 		^this.new(name, input, analyzerFunction, callback)
 	}
 
-	*mfcc {|name, input, callback, triggerFunction, fftSize=1024|
+	*mfcc { |name, input, callback, triggerFunction, fftSize=1024|
 		var analyzerFunction = {|in|
 			var fft;
 			var spectrum;
@@ -266,7 +269,7 @@ TestThat : UnitTest {
 		// this.bootServer makes this test fail so we manually boot the server
 		Server.default.bootSync;
 
-		that = That.amp(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {}, {Impulse.kr(10)});
+		that = That.amp(\foo, { XLine.kr(1.0, 1.0, dur: 100.0) }, {}, { Impulse.kr(10) });
 		1.0.wait;
 
 		this.assertEquals(That(\foo).latestValue[0], 1.0, "Latest value from analyzer does not match!");
@@ -276,8 +279,8 @@ TestThat : UnitTest {
 		That(\foo).clear;
 		1.0.wait;
 
-		this.assertEquals(OSCdef.all.keys.includes(\that_foo), false, "OSCdef should be deleted after clearing That");
-		this.assertEquals(Ndef.all[\localhost].at(\that_foo).isPlaying, false, "Analyzer Ndef should be deleted after clearing That");
+		this.assert(OSCdef.all.keys.includes(\that_foo).not, "OSCdef should be deleted after clearing That");
+		this.assert(Ndef.all[\localhost].at(\that_foo).isPlaying.not, "Analyzer Ndef should be deleted after clearing That");
 	}
 
 	test_updateCallback {
@@ -287,12 +290,12 @@ TestThat : UnitTest {
 
 		Server.default.bootSync;
 
-		that = That.amp(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {|r| foo=r;}, {Impulse.kr(10)});
+		that = That.amp(\foo, { XLine.kr(1.0, 1.0, dur: 100.0) }, { |r| foo = r }, { Impulse.kr(10) });
 		1.0.wait;
 
 		this.assert(foo.isNil.not);
 
-		That.amp(\foo).callback = {|r| bar=r;};
+		That.amp(\foo).callback = { |r| bar = r };
 		0.2.wait;
 
 		this.assert(bar.isNil.not);
@@ -303,11 +306,11 @@ TestThat : UnitTest {
 
 		Server.default.bootSync;
 
-		that = That.identity(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {}, {Impulse.kr(10)});
+		that = That.identity(\foo, { XLine.kr(1.0, 1.0, dur: 100.0) }, {}, { Impulse.kr(10) });
 		1.0.wait;
 		this.assertFloatEquals(That(\foo).latestValue[0], 1.0, "Latest value should be 1.0");
 
-		That(\foo).input = {XLine.kr(-1.0, -1.0, dur: 100.0)};
+		That(\foo).input = { XLine.kr(-1.0, -1.0, dur: 100.0) };
 		1.0.wait;
 		this.assertFloatEquals(That(\foo).latestValue[0], -1.0, "Latest value should be 0.0 after update");
 	}
@@ -318,12 +321,19 @@ TestThat : UnitTest {
 
 		Server.default.bootSync;
 
-		that = That.amp(\foo, {XLine.kr(1.0, 1.0, dur: 100.0)}, {counter = counter+1}, {Impulse.kr(1)});
+		that = That.amp(\foo, { XLine.kr(1.0, 1.0, dur: 100.0) }, { counter = counter + 1 }, { Impulse.kr(1) });
 		1.0.wait;
-		this.assert(counter<10, "Should not trigger too often");
+		this.assert(counter < 10, "Should not trigger too often");
 
-		That.amp(\foo, callback: {counter = counter+1} ,triggerFunction: {Impulse.kr(100.0)});
+		That.amp(\foo, callback: { counter = counter + 1 } ,triggerFunction: { Impulse.kr(100.0) });
 		1.0.wait;
-		this.assert(counter>=50, "Trigger more often after update");
+		this.assert(counter >= 50, "Trigger more often after update");
+	}
+
+	test_access {
+		var that;
+		that = That(\foo);
+		this.assert(that === That(\foo), "That(\name) should return the instance unchanged");
+
 	}
 }
