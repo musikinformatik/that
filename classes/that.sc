@@ -1,7 +1,7 @@
 That {
 	classvar <all; // cache/dictionary for all existing instances
 
-	var <name; // is also used to generate Ndef and OSCdef names - must be unique!
+	var <name; // unique name to access an instance
 	var <input; // input that gets analyzed
 	var <analyzerFunction; // function which analyzes the input and returns an event
 	var <>callback; // function that will get called with the results as first param
@@ -12,10 +12,9 @@ That {
 
 	// private variables
 	var analyzerResultKeys; // keys of the event that the analyzer returns
-	var defName; // name used for OSCdef and Ndef keys
 	var oscChannelName; // osc channel name to send messages from server to sclang
 	var numInputChannels; // needed for unwrapping multichannel results
-	var oscdef; // responds to messages from analyzer
+	var receiver; // responds to messages from analyzer
 
 	*initClass {
 		all = ();
@@ -32,15 +31,13 @@ That {
 	}
 
 	init {
-		defName = "that_%".format(name).asSymbol;
 		oscChannelName = "/that/%".format(name);
-		analyzer = Ndef(defName);
-		oscdef = OSCdef(defName);
+		analyzer = NodeProxy.control(Server.default, 1);
 	}
 
 	clear {
 		analyzer.free;
-		oscdef.free;
+		receiver.free;
 		all[name] = nil;
 	}
 
@@ -63,13 +60,13 @@ That {
 	}
 
 	prUpdateDefs {
-		this.prCreateNdef;
-		this.prCreateOscDef;
+		this.updateAnalyzer;
+		this.updateOSCFunc;
 	}
 
-	prCreateNdef {
+	updateAnalyzer {
 		if(analyzerFunction.isNil) { ^this };
-		analyzer = Ndef(defName, {
+		analyzer.source = {
 			var inputChannels;
 			var analyzerResults;
 			var oscPayload;
@@ -112,12 +109,13 @@ That {
 				oscPayload.flat, // values we evaluated from the analyzer, index 3.. of the OSC message
 				-1, // implicitly set replyID to -1, index 2 of the OSC message
 			);
-		});
+		};
 	}
 
-	prCreateOscDef {
+	updateOSCFunc {
 		if(analyzerFunction.isNil) { ^this };
-		oscdef = OSCdef(defName, { |msg|
+		receiver.free;
+		receiver = OSCFunc({ |msg|
 			var values = msg[3..];
 			var event = ();
 			// msg[2] is replyID of SendReply which we set fixed to -1
@@ -141,7 +139,7 @@ That {
 			// callback time
 			callback.value(event);
 
-		}, oscChannelName).fix;
+		}, oscChannelName);
 	}
 
 	*prCreateTrigger { |in, defaultTrigger, triggerFunction|
@@ -273,14 +271,12 @@ TestThat : UnitTest {
 		1.0.wait;
 
 		this.assertEquals(That(\foo).latestValue[0], 1.0, "Latest value from analyzer does not match!");
-		this.assert(OSCdef.all.keys.includes(\that_foo), "OSCdef should be created with proper name");
-		this.assert(Ndef.all[\localhost].at(\that_foo).isPlaying, "Analyzer Ndef should be playing");
+		this.assert(that.analyzer.isPlaying, "Analyzer NodeProxy should be playing");
 
 		That(\foo).clear;
 		1.0.wait;
 
-		this.assert(OSCdef.all.keys.includes(\that_foo).not, "OSCdef should be deleted after clearing That");
-		this.assert(Ndef.all[\localhost].at(\that_foo).isPlaying.not, "Analyzer Ndef should be deleted after clearing That");
+		this.assert(that.analyzer.isPlaying.not, "Analyzer NodeProxy synth should be deleted after clearing That");
 	}
 
 	test_updateCallback {
