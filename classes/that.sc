@@ -20,19 +20,19 @@ That {
 		all = ();
 	}
 
-	*new { |name, input, analyzerFunction, callback|
+	*new { |name, input, analyzerFunction, callback, server|
 		var res = all.at(name);
 		if(res.isNil, {
-			res = super.newCopyArgs(name).init;
+			res = super.newCopyArgs(name).init(server);
 			all[name] = res;
 		});
 		res.setFunctions(input, analyzerFunction, callback);
 		^res
 	}
 
-	init {
+	init { |server|
 		oscChannelName = "/that/%".format(name);
-		analyzer = NodeProxy.control(Server.default, 1);
+		analyzer = NodeProxy.control(server, 1);
 	}
 
 	clear {
