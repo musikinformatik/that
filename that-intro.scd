@@ -270,8 +270,15 @@ Ndef(\input).play;
 ~that_memory.collect { |x| x[\freq] }; // all frequency values
 ~that_memory.collect { |x| x[\dur] }; // all time values
 
+// convert frequency to note, so one can transpose
+~that_memory.do { |x| x[\note] = x[\freq].cpsmidi - 60; x[\freq] = nil; };
+
+
 // the simplest way to play it back:
 Pseq(~that_memory).play;
+
+// transform to chord
+Pbindf(Pseq(~that_memory), \ctranspose, [0, 6, 7]).play;
 
 // save a bit of memory:
 ~that_saved = ~that_memory.copy;
