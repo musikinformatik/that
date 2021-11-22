@@ -43,8 +43,8 @@ Ndef(\input, { SoundIn.ar([0, 1]) });
 // or alternatively, load a test buffer:
 
 
-~path = // add your path
-~that_buffer = Buffer.read(s, ~path);
+~that_example_file_path = // add your path
+~that_buffer = Buffer.read(s, ~that_example_file_path);
 )
 
 (
