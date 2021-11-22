@@ -35,6 +35,8 @@ Tests can be run via
 TestThat.run();
 ```
 
+There is a previous version included that uses environments and functions only. It can be found in the folder `function-based-that`
+
 ## License
 
 GPL 3
