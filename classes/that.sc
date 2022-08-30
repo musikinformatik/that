@@ -1,6 +1,16 @@
 That {
 	classvar <all; // cache/dictionary for all existing instances
 
+	// private variables, accessed from UGen class
+	// because a UGen can only send numbers we need an additional
+	// mapping of a SynthDefName to uniqueId so we can delete
+	// removed or updated callbacks as we get only the name
+	// of the SynthDef when deleted/updated
+	classvar <ugenOscAddress = "/that/ugen";
+	classvar <>ugenCallbacks; // dictionary of uniqueId:callback
+	classvar <>ugenMap; // dictionary of SynthDefName:uniqueId
+
+
 	var <name; // unique name to access an instance
 	var <input; // input that gets analyzed
 	var <analyzerFunction; // function which analyzes the input and returns an event
@@ -9,6 +19,7 @@ That {
 	// public variables
 	var <latestValue; // last stored value/event that was sent from analyzer
 	var <analyzer; // a node proxy which runs the analyser and can be acessed to modify arguments
+	var oscAddress;
 
 	// private variables
 	var analyzerResultKeys; // keys of the event that the analyzer returns
@@ -18,6 +29,28 @@ That {
 
 	*initClass {
 		all = ();
+		ugenCallbacks = ();
+		ugenMap = ();
+
+		OSCFunc(func: {|msg|
+			var synthDefName = msg[1];
+			if(ugenMap.at(synthDefName).notNil, {
+				var uniqueId = ugenMap[synthDefName];
+				That.ugenCallbacks[uniqueId] = nil;
+				That.ugenMap[synthDefName] = nil;
+			});
+
+		}, path: "/d_removed").fix;
+
+		OSCFunc(func: {|msg|
+			var nodeId, replyId, values, callback;
+			#nodeId, replyId ... values = msg[1..];
+			callback = That.ugenCallbacks.at(replyId);
+			if(callback.notNil, {
+				// add nodeId to all received values as last arg
+				callback.(*(values ++ [nodeId]));
+			});
+		}, path: ugenOscAddress).fix;
 	}
 
 	*new { |name, input, analyzerFunction, callback, server|

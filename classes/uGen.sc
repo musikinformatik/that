@@ -1,20 +1,20 @@
 + UGen {
 	that { | callback, trigger |
-		var oscAddress = "/that/ugen/%/%".format(synthDef, synthIndex);
-		oscAddress.postln;
+		var id = UniqueID.next;
+
 		callback = callback ? {};
 		trigger = trigger ? Impulse.kr(10.0);
+
+		// register id:callback and SynthDef:id
+		That.ugenCallbacks[id] = callback;
+		That.ugenMap[UGen.buildSynthDef.name.asSymbol] = id;
+
 		SendReply.perform(
 			UGen.methodSelectorForRate(trigger.rate),
 			trigger, // trig
-			oscAddress, // cmdName
+			That.ugenOscAddress, // cmdName
 			this, // values
+			id // sendReply
 		);
-
-		OSCdef(key: oscAddress, func:  { |msg|
-			var nodeId, replyId, values;
-			#nodeId, replyId ... values = msg[1..];
-			callback.(values, nodeId);
-		}, path: oscAddress).fix;
 	}
 }
